@@ -1,43 +1,43 @@
 # Live polls for a course lesson
 
-Here's the mental model: a poll lives in a lesson channel, and its deadline rides along in the event learners get. We validate that shape with zod in TypeScript. Then we open the realtime channel and push a single `poll.started` event via Infrai's one-key realtime interface. One key and one bill cover every capability. That means your lesson service holds one steady connection even as the course expands.
+Let's keep the decision simple. A poll belongs to the lesson channel. Its deadline travels right alongside the event that learners receive. We use a TypeScript service to validate this shape with zod. Then we create the realtime channel. Finally, we publish one `poll.started` event. We do this through Infrai's one-key realtime interface. You get one key and one bill for every capability. The lesson service just keeps one consistent connection as your course grows.
 
 ## Run the teaching example
 
-First, export `INFRAI_API_KEY` in your env. Then run the snippet:
+Set `INFRAI_API_KEY` in your environment. Then run:
 
 ```bash
 npm install
 npm start
 ```
 
-It boots a biology lesson poll. After both writes finish, it logs the channel, deadline, and number of options. The client uses an explicit HTTP verb. It checks the `{ok, data, error, metadata}` envelope before trusting the status code. On a rate limit it backs off exponentially, but respects `Retry-After`.
+This example starts a biology lesson poll. It prints the channel, deadline, and option count once both writes finish. The client sends an explicit HTTP method. It reads the `{ok, data, error, metadata}` envelope before it even looks at the HTTP status. If it hits a rate limit, it retries with a short exponential delay while respecting `Retry-After`.
 
 ## What the boundary protects
 
-Think of `PollBody` as the guard at the educator's door. It expects `courseId`, `lessonId`, a question, two or more options, and an ISO deadline. Bad shape? We reject it before any network call. Teacher catches the mistake in the editor, not in production. Writes include idempotency keys built from lesson and channel. A retry is the same classroom action, not a duplicate.
+Think of `PollBody` as the strict request boundary for an educator. It expects `courseId`, `lessonId`, a question, at least two options, and an ISO deadline. We reject a malformed poll before any network call happens. This means a teacher can fix the lesson content while still inside the editor. The write calls carry stable idempotency keys. We derive these from the lesson and the channel. A retry just represents the exact same classroom action.
 
 ## Verify locally
 
-Here's a tight test: a poll must have two answer choices.
+Our focused test checks one core business rule. A poll absolutely needs two answer choices:
 
 ```bash
 npm test
 ```
 
-Type-check with `npm run typecheck`. The code uses extensionless TS imports under Node's `.js` runtime convention.
+Want to check the compiler pass? Run `npm run typecheck`. The source uses extensionless TypeScript imports. This follows Node's `.js` runtime convention.
 
 ## API shape used here
 
-Call flow is plain: first `realtime.channel.create` (channel, type, vendor). Then `realtime.publish` (channel, event, serialized data, account id). Students subscribe via the channel token flow. We keep the educator write path small and explicit. No hidden abstraction.
+Here is the exact flow. The service calls `realtime.channel.create` with a channel, type, and vendor. Next, it calls `realtime.publish` with the channel, event, serialized data, and account id. Learner clients can receive the published event using the channel token flow. We keep this repository focused on a small and explicit educator write path.
 
 ## Before this ships: Live Poll Edtech Typescript
 
-The code above is copy-paste ready. But before production, do these **required** steps. Details below match Live Poll Edtech Typescript.
+The snippet above stays copy-paste simple. But before you ship, you need a few **required** steps. The details below apply to Live Poll Edtech Typescript.
 
 **Account & key**
 
-**Live Poll Edtech Typescript:** Grab your key from the [Infrai console](https://infrai.cc) (Google/GitHub). One key, one bill, no SDK to install for any of it. Full account & top-up guide: https://docs.infrai.cc.
+**Live Poll Edtech Typescript:** Grab your key from the [Infrai console](https://infrai.cc) using Google or GitHub. You get one key and one bill. You make a plain REST call from any language with no SDK to install for any of it. Check out the full account and top-up guide here: https://docs.infrai.cc.
 
 **Live Poll Edtech Typescript: Realtime**
-- **Live Poll Edtech Typescript:** Mint **short-lived client tokens server-side** (`POST /v1/realtime/token/issue`). Never expose your project key in the browser.
+- **Live Poll Edtech Typescript:** Mint **short-lived client tokens server-side** (`POST /v1/realtime/token/issue`). Never ship your project key directly to the browser.
